@@ -7,11 +7,13 @@ import {
   Param,
   Delete,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ApiTags, ApiQuery, ApiParam, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @ApiTags('Products')
 @Controller('products')
@@ -89,6 +91,7 @@ export class ProductsController {
   // =========================================
   // 7) Add new product
   // =========================================
+  @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Add a new product' })
   create(@Body() dto: CreateProductDto) {
@@ -98,6 +101,7 @@ export class ProductsController {
   // =========================================
   // 8) Update product
   // =========================================
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product' })
   @ApiParam({ name: 'id', type: Number })
@@ -108,6 +112,7 @@ export class ProductsController {
   // =========================================
   // 9) Delete product
   // =========================================
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a product' })
   @ApiParam({ name: 'id', type: Number })
