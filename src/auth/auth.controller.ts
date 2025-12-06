@@ -10,8 +10,7 @@ import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { plainToInstance } from 'class-transformer';
-import { validateOrReject } from 'class-validator';
+
 
 @Controller('auth')
 export class AuthController {
@@ -19,11 +18,14 @@ export class AuthController {
 
   // REGISTER (Protected by custom header)
   @Post('register')
-  async register(@Headers('register') register: string) {
+  async register(
+    @Headers('register-auth-token') authRegisterToken: string,
+    @Body() dto: RegisterDto,
+  ) {
     try {
-      const parsed = JSON.parse(register);
-      const dto = plainToInstance(RegisterDto, parsed);
-      await validateOrReject(dto);
+      if(authRegisterToken !== process.env.REGISTRATION_SECRET) {
+        throw new UnauthorizedException('Invalid register auth token');
+      }
       return this.authService.register(dto);
     } catch (error) {
       throw new UnauthorizedException(error);
@@ -33,13 +35,10 @@ export class AuthController {
   // LOGIN (Public)
   @Post('login')
   async login(
-    @Headers('login') login: string,
+    @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
-      const parsed = JSON.parse(login);
-      const dto = plainToInstance(LoginDto, parsed);
-      await validateOrReject(dto);
       const { token } = await this.authService.login(dto);
       res.cookie('jwt', token, { httpOnly: true});
       return { message: 'Logged in', token };

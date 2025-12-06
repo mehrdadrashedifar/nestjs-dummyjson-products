@@ -1,38 +1,34 @@
 import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { Model } from 'mongoose';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { User } from '../users/schemas/user.schema';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
     private jwtService: JwtService,
+    private usersService: UsersService,
   ) {}
 
   // REGISTER (Protected by header token)
   async register(dto: RegisterDto) {
-    const exists = await this.userModel.findOne({ email: dto.email });
+    const exists = await this.usersService.findByEmail(dto.email);
     if (exists) throw new ForbiddenException('User already exists');
-
+    
     const hash = await bcrypt.hash(dto.password, 10);
-
-    const user = new this.userModel({
+    const user = {
       ...dto,
       password: hash,
-    });
-
-    await user.save();
+    };
+    await this.usersService.createUser(user);
     return { message: 'User created successfully' };
   }
 
   // LOGIN
   async login(dto: LoginDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
+    const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const match = await bcrypt.compare(dto.password, user.password);
@@ -44,6 +40,6 @@ export class AuthService {
   }
 
   async validateUser(payload: any) {
-    return this.userModel.findById(payload.userId);
+    return this.usersService.findById(payload.userId);
   }
 }
