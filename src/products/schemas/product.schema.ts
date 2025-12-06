@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import mongoose, { HydratedDocument } from 'mongoose';
 
 export type ProductDocument = HydratedDocument<Product>;
 
@@ -62,8 +62,12 @@ export class Product {
   @Prop()
   description: string;
 
-  @Prop({ required: true })
-  category: string;
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: true,
+  })
+  categoryId: mongoose.Types.ObjectId;
 
   @Prop({ required: true })
   price: number;

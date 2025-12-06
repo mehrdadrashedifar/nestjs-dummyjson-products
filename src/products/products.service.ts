@@ -4,11 +4,13 @@ import { Model } from 'mongoose';
 import { Product } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { CategoriesService } from 'src/categories/categories.service';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   // =====================================================
@@ -29,6 +31,7 @@ export class ProductsService {
 
     const products = await this.productModel
       .find()
+      .populate('categoryId')
       .sort({ [sortBy]: sortOrder })
       .skip(Number(skip))
       .limit(Number(limit));
@@ -47,8 +50,11 @@ export class ProductsService {
   // 2) Get a single product
   // =====================================================
   async findOne(id: number) {
-    const product = await this.productModel.findOne({ id });
-    if (!product) throw new NotFoundException(`Product with id ${id} not found`);
+    const product = await this.productModel
+      .findOne({ id })
+      .populate('categoryId');
+    if (!product)
+      throw new NotFoundException(`Product with id ${id} not found`);
     return product;
   }
 
@@ -70,15 +76,15 @@ export class ProductsService {
   }
 
   // =====================================================
-  // 4) Get ALL categories (slug, name, url) — like dummyjson
+  // 4) Get ALL categories (slug, name, url)
   // =====================================================
   async getAllCategories() {
-    const raw = await this.productModel.distinct('category');
+    const categories = await this.categoriesService.findAll();
 
-    return raw.map((cat: string) => ({
-      slug: cat,
-      name: this.toTitle(cat),
-      url: `https://dummyjson.com/products/category/${cat}`,
+    return categories.map((cat) => ({
+      slug: cat.slug,
+      name: this.toTitle(cat.name),
+      url: `https://dummyjson.com/products/category/${cat.slug}`,
     }));
   }
 
@@ -94,23 +100,27 @@ export class ProductsService {
   // 5) Category list (string array only)
   // =====================================================
   async getCategoryList() {
-    return this.productModel.distinct('category');
+    const categories = await this.categoriesService.findAll();
+    return categories.map((cat) => cat.slug);
   }
 
   // =====================================================
   // 6) Get products by category + pagination
   // =====================================================
-  async getByCategory(
-    category: string,
-    limit = 30,
-    skip = 0,
-  ) {
+  async getByCategory(category: string, limit = 30, skip = 0) {
+    const categoryObj = await this.categoriesService.findBySlug(category);
+    if (!categoryObj) {
+      throw new NotFoundException('Category not found');
+    }
+
     const products = await this.productModel
-      .find({ category })
+      .find({ categoryId: categoryObj._id })
       .skip(Number(skip))
       .limit(Number(limit));
 
-    const total = await this.productModel.countDocuments({ category });
+    const total = await this.productModel.countDocuments({
+      categoryId: categoryObj._id,
+    });
 
     return {
       products,
@@ -125,10 +135,7 @@ export class ProductsService {
   // =====================================================
   async create(dto: CreateProductDto) {
     // Generate new id (max + 1)
-    const last = await this.productModel
-      .find()
-      .sort({ id: -1 })
-      .limit(1);
+    const last = await this.productModel.find().sort({ id: -1 }).limit(1);
 
     const newId = last.length ? last[0].id + 1 : 1;
 
@@ -144,13 +151,12 @@ export class ProductsService {
   // 8) Update product
   // =====================================================
   async update(id: number, dto: UpdateProductDto) {
-    const updated = await this.productModel.findOneAndUpdate(
-      { id },
-      dto,
-      { new: true },
-    );
+    const updated = await this.productModel.findOneAndUpdate({ id }, dto, {
+      new: true,
+    });
 
-    if (!updated) throw new NotFoundException(`Product with id ${id} not found`);
+    if (!updated)
+      throw new NotFoundException(`Product with id ${id} not found`);
     return updated;
   }
 
@@ -160,7 +166,8 @@ export class ProductsService {
   async remove(id: number) {
     const deleted = await this.productModel.findOneAndDelete({ id });
 
-    if (!deleted) throw new NotFoundException(`Product with id ${id} not found`);
+    if (!deleted)
+      throw new NotFoundException(`Product with id ${id} not found`);
 
     return { message: 'Product deleted successfully', id };
   }

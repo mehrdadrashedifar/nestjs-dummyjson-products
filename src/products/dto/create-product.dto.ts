@@ -8,6 +8,7 @@ import {
   IsEmail,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import mongoose from 'mongoose';
 
 class DimensionsDto {
   @ApiPropertyOptional()
@@ -80,7 +81,7 @@ export class CreateProductDto {
 
   @ApiProperty()
   @IsString()
-  category: string;
+  categoryId: mongoose.Types.ObjectId;
 
   @ApiProperty()
   @IsNumber()
